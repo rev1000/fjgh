@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>GESTIONABLE V3</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{colors:{warp:{3:'#c084fc',4:'#a855f7',5:'#7e22ce',9:'#3b0764'},void:'#030303'},fontFamily:{tech:['Share Tech Mono','IBM Plex Mono','monospace']}}}}</script>
+<style>
+:root{--mx:50vw;--my:50vh}
+*{cursor:crosshair}
+body{font-family:'Share Tech Mono',monospace;background:#030303;color:#c8c8d0;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:url('https://picsum.photos/seed/warp1/1920/1080'),url('https://picsum.photos/seed/afx2/1920/1080');
+  background-size:cover;opacity:.07;mix-blend-mode:luminosity;animation:bgshift 40s ease-in-out infinite alternate}
+@keyframes bgshift{0%{background-position:0% 0%}100%{background-position:20% 30%}}
+/* HTML var dump + cursor coords on background */
+body::after{content:'var(--estado) · var(--prioridad) · cursor(' attr(data-cx) ',' attr(data-cy) ') · GESTIONABLE_V3';
+  position:fixed;bottom:8px;left:12px;font-size:9px;color:#333;z-index:1;pointer-events:none;letter-spacing:.08em}
+#cursor-trail{position:fixed;width:8px;height:8px;border:1px solid #a855f7;border-radius:50%;pointer-events:none;z-index:9999;mix-blend-mode:screen;transition:transform .05s}
+.card{background:rgba(8,8,12,.82);border:1px solid #1c1c28;backdrop-filter:blur(10px);position:relative}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,#7e22ce55,transparent)}
+.btn{background:linear-gradient(135deg,#5b21b6,#a855f7);color:#fff;border:1px solid #7e22ce;letter-spacing:.05em}
+.btn:hover{filter:brightness(1.15);box-shadow:0 0 20px #a855f744}
+.tab-on{color:#e9d5ff;text-shadow:0 0 12px #a855f7;border-bottom:2px solid #a855f7}
+input,select,textarea{background:#0a0a10!important;border:1px solid #2a2a3a!important;color:#d0d0e0!important;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:#a855f7!important;outline:none;box-shadow:0 0 0 1px #a855f744}
+.kanban-col{min-height:220px;background:rgba(6,6,10,.7);border:1px solid #1a1a28}
+.task-card{cursor:grab;transition:transform .2s,box-shadow .2s}
+.task-card:hover{box-shadow:0 0 16px #a855f733}
+.task-card.dragging{opacity:.4;transform:scale(.95) rotate(1deg)}
+.task-card.drop-flash{animation:dropflash .45s ease}
+@keyframes dropflash{0%{box-shadow:0 0 0 #a855f7}40%{box-shadow:0 0 30px #c084fc}100%{box-shadow:none}}
+.glitch-logo{position:relative;display:inline-block}
+.glitch-logo::before,.glitch-logo::after{content:attr(data-text);position:absolute;left:0;top:0;width:100%;overflow:hidden}
+.glitch-logo::before{left:2px;text-shadow:-1px 0 #f0f;clip-path:inset(0 0 55% 0);animation:g1 2.5s infinite linear alternate-reverse}
+.glitch-logo::after{left:-2px;text-shadow:1px 0 #0ff;clip-path:inset(45% 0 0 0);animation:g2 3s infinite linear alternate-reverse}
+@keyframes g1{0%{clip-path:inset(10% 0 60% 0)}50%{clip-path:inset(50% 0 20% 0)}100%{clip-path:inset(20% 0 40% 0)}}
+@keyframes g2{0%{clip-path:inset(60% 0 10% 0)}50%{clip-path:inset(5% 0 70% 0)}100%{clip-path:inset(40% 0 15% 0)}}
+.score{font-size:10px;padding:1px 5px;border-radius:2px}
+.modal-bg{background:rgba(0,0,0,.85);backdrop-filter:blur(6px)}
+.cal-day{aspect-ratio:1;border:1px solid #1a1a28;font-size:11px}
+.cal-day.has-ev{background:#3b076455;border-color:#a855f766;box-shadow:inset 0 0 12px #a855f722}
+.cal-day.today{outline:1px solid #c084fc}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:#3b0764}
+.scanline{pointer-events:none;position:fixed;inset:0;z-index:2;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 3px);opacity:.4}
+
+#session-hud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;pointer-events:none;
+  font-size:clamp(14px,2.5vw,22px);color:rgba(168,85,247,0.22);letter-spacing:0.15em;text-align:center;
+  font-family:'Share Tech Mono',monospace;line-height:1.6;text-shadow:0 0 20px rgba(168,85,247,0.15)}
+#blackhole{position:fixed;right:24px;bottom:24px;width:72px;height:72px;border-radius:50%;z-index:40;
+  background:radial-gradient(circle at 35% 35%,#c084fc 0%,#7e22ce 35%,#1a0530 70%,#000 100%);
+  box-shadow:0 0 30px #a855f766,inset 0 0 20px #000;cursor:pointer;transition:transform .2s,box-shadow .2s}
+#blackhole:hover{transform:scale(1.12);box-shadow:0 0 50px #c084fc99}
+#blackhole.absorb{animation:absorb .6s ease-in}
+@keyframes absorb{0%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.4);filter:brightness(1.8)}100%{transform:scale(1);filter:brightness(1)}}
+@keyframes suck{0%{transform:scale(1) rotate(0);opacity:1;filter:blur(0)}100%{transform:scale(0) rotate(180deg);opacity:0;filter:blur(8px)}}
+.task-card.sucking{animation:suck .55s forwards;pointer-events:none}
+.hab-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;max-width:140px}
+.hab-month .cal-day{font-size:7px;min-height:14px;aspect-ratio:1}
+.timeline-day{display:grid;grid-template-columns:48px 1fr;gap:4px;font-size:10px}
+.timeline-hour{border-left:1px solid #2a2a3a;padding-left:6px;min-height:22px;position:relative}
+
+</style>
+</head>
+<body data-cx="0" data-cy="0">
+<div class="scanline"></div>
+<div id="cursor-trail"></div>
+
+<div id="login-screen" class="min-h-screen flex items-center justify-center p-4 relative z-10">
+  <div class="card rounded-none p-8 w-full max-w-md border border-warp-5/40">
+    <div class="text-center mb-6">
+      <div class="glitch-logo text-3xl text-warp-3 tracking-tighter" data-text="GESTIONABLE">GESTIONABLE</div>
+      <p class="text-[10px] text-gray-600 mt-2 tracking-[0.3em]">V3 · WARP OS · WEIRDCORE</p>
+    </div>
+    <div class="space-y-3">
+      <input id="le" type="email" value="user@gestionable.app" class="w-full px-3 py-2 text-sm" placeholder="email"/>
+      <input id="lp" type="password" value="user123" class="w-full px-3 py-2 text-sm" placeholder="password"/>
+      <button onclick="doLogin()" class="btn w-full py-2 text-sm">ENTRAR_</button>
+      <button onclick="doRegister()" class="w-full py-2 text-sm border border-gray-700 text-gray-500 hover:border-warp-4">REGISTRAR_</button>
+      <p id="lerr" class="text-red-400 text-xs text-center hidden"></p>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden min-h-screen flex flex-col relative z-10">
+  <header class="border-b border-[#1a1a28] px-3 py-2 flex items-center gap-2 sticky top-0 bg-void/90 backdrop-blur-md z-50">
+    <span class="glitch-logo text-warp-3 text-sm tracking-tighter shrink-0" data-text="GESTIONABLE">GESTIONABLE</span>
+    <nav class="flex gap-0.5 text-[11px] overflow-x-auto flex-1" id="nav">
+      <button data-tab="home" class="tab-btn tab-on px-2 py-1.5 whitespace-nowrap">HOME</button>
+      <button data-tab="matriz" class="tab-btn px-2 py-1.5 text-gray-500 whitespace-nowrap">MATRIZ</button>
+      <button data-tab="kanban" class="tab-btn px-2 py-1.5 text-gray-500 whitespace-nowrap">KANBAN</button>
+      <button data-tab="burndown" class="tab-btn px-2 py-1.5 text-gray-500 whitespace-nowrap">BURNDOWN</button>
+      <button data-tab="habitos" class="tab-btn px-2 py-1.5 text-gray-500 whitespace-nowrap">HÁBITOS</button>
+      <button data-tab="proyectos" class="tab-btn px-2 py-1.5 text-gray-500 whitespace-nowrap">PROYECTOS</button>
+      <button data-tab="eventos" class="tab-btn px-2 py-1.5 text-gray-500 whitespace-nowrap">EVENTOS</button>
+      <button data-tab="hoy" class="tab-btn px-2 py-1.5 text-gray-500 whitespace-nowrap">HOY</button>
+      <button data-tab="admin" id="admin-tab" class="tab-btn px-2 py-1.5 text-gray-500 whitespace-nowrap hidden">ADMIN</button>
+    </nav>
+    <span id="ubadge" class="text-[9px] text-gray-600 hidden sm:inline"></span>
+    <button onclick="logout()" class="text-[10px] text-gray-600 hover:text-red-400">EXIT</button>
+  </header>
+  <main class="flex-1 p-3 md:p-5 max-w-7xl mx-auto w-full">
+
+    
+    <!-- HOME -->
+    <section id="tab-home" class="tab-c fade">
+      <div class="text-center mb-6 pt-4">
+        <div class="glitch-logo text-2xl md:text-4xl text-warp-3 tracking-tighter mb-2" data-text="NUEVO DÍA" id="home-glitch">NUEVO DÍA</div>
+        <p class="text-sm text-gray-400" id="home-saludo">—</p>
+        <p class="text-[10px] text-gray-600 mt-1 font-mono" id="home-date"></p>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div class="card p-4 text-center home-pulse"><div class="text-3xl text-warp-3" id="home-n-tareas">0</div><div class="text-[10px] text-gray-600">TAREAS_ACTIVAS</div></div>
+        <div class="card p-4 text-center home-pulse"><div class="text-3xl text-emerald-400" id="home-n-hab">0</div><div class="text-[10px] text-gray-600">HÁBITOS_PEND</div></div>
+        <div class="card p-4 text-center home-pulse"><div class="text-3xl text-amber-400" id="home-racha">0</div><div class="text-[10px] text-gray-600">MEJOR_RACHA</div></div>
+        <div class="card p-4 text-center"><button onclick="switchTab('kanban')" class="btn text-[10px] px-3 py-2 w-full">IR_A_KANBAN</button></div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="card p-4">
+          <h3 class="text-[10px] tracking-widest text-warp-3 mb-3">TAREAS_PRIORITARIAS</h3>
+          <div id="home-tareas" class="space-y-2"></div>
+        </div>
+        <div class="card p-4">
+          <h3 class="text-[10px] tracking-widest text-warp-3 mb-3">HÁBITOS_HOY</h3>
+          <div id="home-habitos" class="space-y-2 max-h-80 overflow-y-auto"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MATRIZ -->
+    <section id="tab-matriz" class="tab-c hidden">
+      <div class="flex flex-wrap justify-between gap-2 mb-3">
+        <div>
+          <h2 class="text-warp-3 text-sm tracking-widest">MATRIZ_PRIORIDAD</h2>
+          <p class="text-[10px] text-gray-600" id="formula-txt">P = 8×U + 5×I − 2×E − M</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="openFormula()" class="text-[10px] px-2 py-1 border border-gray-700 text-gray-400 hover:border-warp-4">EDIT_FÓRMULA</button>
+          <button onclick="openTask()" class="btn text-[10px] px-3 py-1">+ TAREA</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-1 mb-2 text-[9px]">
+        <div class="p-2 border border-emerald-900/40 text-emerald-400/80"><b>GANANCIAS RÁPIDAS</b><br>Estrategia: hazlas YA · alto impacto, bajo esfuerzo</div>
+        <div class="p-2 border border-sky-900/40 text-sky-400/80"><b>PROYECTOS ESTRATÉGICOS</b><br>Estrategia: planifica y protege tiempo · alto impacto, alto esfuerzo</div>
+        <div class="p-2 border border-amber-900/40 text-amber-400/80"><b>MANTENIMIENTO / OCIO</b><br>Estrategia: lotes o delega · bajo impacto, bajo esfuerzo</div>
+        <div class="p-2 border border-rose-900/40 text-rose-400/80"><b>ELIMINAR / DELEGAR</b><br>Estrategia: evita o externaliza · bajo impacto, alto esfuerzo</div>
+      </div>
+      <div class="card p-2 mb-3 relative" style="height:720px">
+        <canvas id="mchart"></canvas>
+      </div>
+      <div class="card overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="text-[9px] text-gray-600 uppercase"><tr>
+            <th class="px-2 py-2">#</th><th class="px-2 py-2 text-left">Tarea</th>
+            <th class="px-2 py-2">I</th><th class="px-2 py-2">E</th><th class="px-2 py-2">M</th><th class="px-2 py-2">U</th>
+            <th class="px-2 py-2">P</th><th class="px-2 py-2">Área</th><th class="px-2 py-2">Estado</th><th></th>
+          </tr></thead>
+          <tbody id="mtable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- KANBAN -->
+    <section id="tab-kanban" class="tab-c hidden">
+      <div class="flex justify-between mb-3">
+        <h2 class="text-warp-3 text-sm tracking-widest">KANBAN_ · sorted by P</h2>
+        <button onclick="openTask()" class="btn text-[10px] px-3 py-1">+ TAREA</button>
+      </div>
+      <div id="kboard" class="flex gap-2 overflow-x-auto pb-4"></div>
+      <div id="kanban-cal" class="mt-4 grid md:grid-cols-2 gap-3"></div>
+    </section>
+
+    <!-- BURNDOWN -->
+    <section id="tab-burndown" class="tab-c hidden">
+      <h2 class="text-warp-3 text-sm tracking-widest mb-3">BURNDOWN_CHART</h2>
+      <div class="card p-4 mb-3">
+        <p class="text-[10px] text-gray-500 mb-2">Periodo del ciclo · tareas en Pendiente/activas del intervalo</p>
+        <div class="flex flex-wrap gap-3 items-end">
+          <div><label class="text-[9px] text-gray-600 block">Inicio</label><input type="date" id="bd-i" class="px-2 py-1 text-sm"/></div>
+          <div><label class="text-[9px] text-gray-600 block">Fin</label><input type="date" id="bd-f" class="px-2 py-1 text-sm"/></div>
+          <button onclick="saveBd()" class="btn text-[10px] px-3 py-1.5">GUARDAR</button>
+        </div>
+        <p id="bd-st" class="text-[10px] text-gray-500 mt-2"></p>
+      </div>
+      <div class="card p-4"><canvas id="bdchart" height="140"></canvas></div>
+    </section>
+
+    <!-- HÁBITOS -->
+    <section id="tab-habitos" class="tab-c hidden">
+      <div class="flex justify-between mb-3">
+        <h2 class="text-warp-3 text-sm tracking-widest">HÁBITOS_ · por área</h2>
+        <button onclick="openHabito()" class="btn text-[10px] px-3 py-1">+ HÁBITO</button>
+      </div>
+      <div id="hab-list" class="space-y-4"></div>
+    </section>
+
+    <!-- PROYECTOS -->
+    <section id="tab-proyectos" class="tab-c hidden">
+      <div class="flex justify-between mb-3">
+        <h2 class="text-warp-3 text-sm tracking-widest">PROYECTOS_</h2>
+        <button onclick="openProyecto()" class="btn text-[10px] px-3 py-1">+ PROYECTO</button>
+      </div>
+      <div id="proy-list" class="space-y-3"></div>
+    </section>
+
+    <!-- EVENTOS + CAL -->
+    <section id="tab-eventos" class="tab-c hidden">
+      <div class="flex justify-between mb-3">
+        <h2 class="text-warp-3 text-sm tracking-widest">EVENTOS_ · calendario mensual</h2>
+        <button onclick="openEvento()" class="btn text-[10px] px-3 py-1">+ EVENTO</button>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="card p-3"><div id="ev-list" class="space-y-2 text-xs"></div></div>
+        <div class="card p-3">
+          <div class="flex justify-between mb-2 text-xs">
+            <button onclick="calNav(-1)" class="text-gray-500 hover:text-warp-3">◀</button>
+            <span id="cal-title" class="text-warp-3"></span>
+            <button onclick="calNav(1)" class="text-gray-500 hover:text-warp-3">▶</button>
+          </div>
+          <div class="grid grid-cols-7 gap-0.5 text-[9px] text-gray-600 text-center mb-1">
+            <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+          </div>
+          <div id="cal-grid" class="grid grid-cols-7 gap-0.5"></div>
+          <div id="cal-items" class="mt-2 text-[10px] space-y-1 max-h-32 overflow-y-auto"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOY -->
+    <section id="tab-hoy" class="tab-c hidden">
+      <h2 class="text-warp-3 text-sm tracking-widest mb-3">HOY_ · dashboard</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="card p-4 text-center"><div class="text-3xl text-warp-3" id="hoy-n">0</div><div class="text-[10px] text-gray-600">COMPLETADAS</div></div>
+        <div class="card p-4 text-center"><div class="text-3xl text-gray-400" id="hoy-avg">0</div><div class="text-[10px] text-gray-600">PROMEDIO</div></div>
+        <div class="card p-4 text-center"><div class="text-3xl text-amber-400" id="hoy-eff">0</div><div class="text-[10px] text-gray-600">ESFUERZO_Σ</div></div>
+        <div class="card p-4 text-center"><button onclick="doResetDiario()" class="btn text-[10px] px-2 py-1">RESET_DIARIO</button><div class="text-[9px] text-gray-600 mt-1">Pend→Backlog · archiva Done/Cancel</div></div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-3 mb-3">
+        <div class="card p-3"><div class="text-[10px] text-gray-600 mb-2">POR_ÁREA</div><canvas id="hoypie" height="160"></canvas></div>
+        <div class="card p-3"><div class="text-[10px] text-gray-600 mb-2">SERIE_DIARIA</div><canvas id="hoychart" height="160"></canvas></div>
+      </div>
+      <div class="grid md:grid-cols-3 gap-3">
+        <div class="card p-3"><div class="text-[10px] text-warp-3 mb-2">PROYECTOS</div><div id="hoy-proy" class="text-xs space-y-2"></div></div>
+        <div class="card p-3"><div class="text-[10px] text-warp-3 mb-2">RACHAS_HÁBITOS</div><div id="hoy-hab" class="text-xs space-y-1"></div></div>
+        <div class="card p-3"><div class="text-[10px] text-warp-3 mb-2">POR_ESTADO</div><div id="hoy-est" class="text-xs space-y-1"></div></div>
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="tab-admin" class="tab-c hidden">
+      <h2 class="text-warp-3 text-sm tracking-widest mb-3">ADMIN_ · tablas</h2>
+      <div class="flex flex-wrap gap-1 mb-3" id="admin-tabs"></div>
+      <div class="card overflow-auto max-h-[65vh]">
+        <table class="w-full text-[11px]" id="admin-table"><thead id="admin-thead"></thead><tbody id="admin-tbody"></tbody></table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- GENERIC MODAL -->
+<div id="modal" class="hidden fixed inset-0 modal-bg z-50 flex items-center justify-center p-4">
+  <div class="card w-full max-w-md max-h-[90vh] overflow-y-auto p-5 border border-warp-5/30">
+    <h3 class="text-warp-3 text-sm tracking-widest mb-3" id="modal-title">—</h3>
+    <div id="modal-body" class="space-y-2 text-sm"></div>
+    <div class="flex gap-2 mt-4">
+      <button onclick="modalSave()" class="btn flex-1 py-2 text-xs">GUARDAR_</button>
+      <button onclick="closeModal()" class="flex-1 py-2 text-xs border border-gray-700 text-gray-500">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let token=localStorage.getItem('gv3t'), user=JSON.parse(localStorage.getItem('gv3u')||'null');
+let areas=[], mChart, bdChart, hoyChart, calMonth=new Date(), modalCtx=null, dragId=null;
+let undoStack=[], redoStack=[];
+function pushUndo(action){undoStack.push(action);if(undoStack.length>40)undoStack.shift();redoStack=[];renderEditBar()}
+async function doUndo(){
+  const a=undoStack.pop();if(!a)return;
+  redoStack.push(a);
+  if(a.type==='move'){await api('/api/kanban/move',{method:'POST',body:JSON.stringify({tarea_id:a.id,estado:a.from})});loadKanban()}
+  if(a.type==='soft_delete'){await api('/api/tareas/'+a.id,{method:'PATCH',body:JSON.stringify({estado:a.from||'Backlog'})});loadKanban();loadMatriz()}
+  renderEditBar();
+}
+async function doRedo(){
+  const a=redoStack.pop();if(!a)return;
+  undoStack.push(a);
+  if(a.type==='move'){await api('/api/kanban/move',{method:'POST',body:JSON.stringify({tarea_id:a.id,estado:a.to})});loadKanban()}
+  if(a.type==='soft_delete'){await api('/api/tareas/'+a.id+'/eliminar',{method:'POST'});loadKanban()}
+  renderEditBar();
+}
+function renderEditBar(){
+  const b=document.getElementById('edit-bar');
+  if(!b)return;
+  b.innerHTML=`<button onclick="doUndo()" class="px-2 py-1 border border-gray-700 text-[10px] ${undoStack.length?'text-warp-3':'text-gray-700'}" title="Undo">UNDO (${undoStack.length})</button>
+  <button onclick="doRedo()" class="px-2 py-1 border border-gray-700 text-[10px] ${redoStack.length?'text-warp-3':'text-gray-700'}" title="Redo">REDO (${redoStack.length})</button>`;
+}
+
+document.addEventListener('mousemove',e=>{
+  document.body.dataset.cx=e.clientX;document.body.dataset.cy=e.clientY;
+  const t=document.getElementById('cursor-trail');
+  if(t)t.style.transform=`translate(${e.clientX-4}px,${e.clientY-4}px)`;
+  const hud=document.getElementById('session-hud');
+  if(hud){
+    const u=user?user.email:'anon';
+    hud.innerHTML=`CURSOR ${e.clientX} · ${e.clientY}<br>SESSION ${u}<br>GESTIONABLE_V4 · ${new Date().toLocaleTimeString()}`;
+  }
+});
+
+async function api(path,opts={}){
+  const h={'Content-Type':'application/json',...(opts.headers||{})};
+  if(token)h.Authorization='Bearer '+token;
+  const r=await fetch(path,{...opts,headers:h});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||r.statusText);
+  return d;
+}
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+function sc(p){if(p>=60)return'#22c55e';if(p>=45)return'#a3e635';if(p>=30)return'#eab308';if(p>=15)return'#f97316';return'#ef4444'}
+function el(id){return document.getElementById(id)}
+
+async function doLogin(){
+  try{
+    const d=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:el('le').value,password:el('lp').value})});
+    token=d.token;user=d.user;localStorage.setItem('gv3t',token);localStorage.setItem('gv3u',JSON.stringify(user));
+    enterApp();
+  }catch(e){el('lerr').textContent=e.message;el('lerr').classList.remove('hidden')}
+}
+async function doRegister(){
+  try{await api('/api/auth/register',{method:'POST',body:JSON.stringify({email:el('le').value,password:el('lp').value})});await doLogin()}
+  catch(e){el('lerr').textContent=e.message;el('lerr').classList.remove('hidden')}
+}
+function logout(){token=null;user=null;localStorage.clear();el('app').classList.add('hidden');el('login-screen').classList.remove('hidden')}
+
+async function enterApp(){
+  el('login-screen').classList.add('hidden');el('app').classList.remove('hidden');
+  el('ubadge').textContent=`${user.nombre}·${user.role}`;
+  if(user.role==='admin')el('admin-tab').classList.remove('hidden');
+  areas=await api('/api/areas');
+  renderEditBar();api('/api/habitos/seed-pdf',{method:'POST'}).catch(()=>{});switchTab('home');
+}
+
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+function switchTab(n){
+  document.querySelectorAll('.tab-c').forEach(e=>e.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('tab-on');b.classList.add('text-gray-500')});
+  el('tab-'+n).classList.remove('hidden');
+  const a=document.querySelector(`[data-tab="${n}"]`);if(a){a.classList.add('tab-on');a.classList.remove('text-gray-500')}
+  ({home:loadHome,matriz:loadMatriz,kanban:loadKanban,burndown:loadBd,habitos:loadHabitos,proyectos:loadProy,eventos:loadEv,hoy:loadHoy,admin:loadAdminTabs})[n]?.();
+}
+
+
+async function loadHome(){
+  try{
+    const d=await api('/api/home');
+    el('home-saludo').textContent=d.saludo||'';
+    el('home-date').textContent=new Date().toLocaleDateString('es',{weekday:'long',day:'numeric',month:'long'});
+    el('home-n-tareas').textContent=d.total_tareas||0;
+    el('home-n-hab').textContent=d.total_habitos_pend||0;
+    el('home-racha').textContent=d.racha_max||0;
+    el('home-tareas').innerHTML=(d.tareas_pendientes||[]).map(t=>`
+      <div class="flex justify-between items-center border-b border-[#1a1a28] py-1.5 text-xs cursor-pointer hover:bg-white/[0.03]"
+           onclick='openTask(${JSON.stringify(t).replace(/'/g,"&#39;")})'>
+        <span>${esc(t.titulo)}</span>
+        <span class="score" style="color:${sc(t.prioridad)}">P${Math.round(t.prioridad)}</span>
+      </div>`).join('')||'<p class="text-gray-600 text-xs">Sin tareas pendientes · ¡libre para crear!</p>';
+    el('home-habitos').innerHTML=(d.habitos_pendientes||[]).map(h=>`
+      <div class="flex items-center gap-2 text-xs border-b border-[#1a1a28] py-1.5">
+        <button onclick="completeHabHome('${h.id}')" class="w-7 h-7 border border-gray-600 hover:border-emerald-500 text-[10px] shrink-0">○</button>
+        <div class="flex-1 min-w-0"><div class="truncate">${esc(h.titulo)}</div>
+          <div class="text-[8px] text-gray-600">${h.horario||''} · ${h.duracion_min||10}min · 🔥${h.racha||0}</div></div>
+      </div>`).join('')||'<p class="text-emerald-400/70 text-xs">Todos los hábitos del día hechos ✨</p>';
+  }catch(e){console.error(e)}
+}
+async function completeHabHome(id){
+  await api('/api/habitos/'+id+'/estado',{method:'POST',body:JSON.stringify({estado:'Completado'})});
+  loadHome();
+}
+
+// MATRIZ
+async function loadMatriz(){
+  const d=await api('/api/matriz');
+  el('formula-txt').textContent=d.formula;
+  const items=d.items||[];
+  el('mtable').innerHTML=items.map(it=>`<tr class="border-t border-[#1a1a28] hover:bg-white/[0.02]">
+    <td class="px-2 py-1 text-gray-600">${it.rank}</td>
+    <td class="px-2 py-1">${esc(it.titulo)}</td>
+    <td class="px-2 py-1 text-center">${it.impacto}</td>
+    <td class="px-2 py-1 text-center">${it.esfuerzo}</td>
+    <td class="px-2 py-1 text-center">${it.miedo}</td>
+    <td class="px-2 py-1 text-center">${it.urgencia}</td>
+    <td class="px-2 py-1 text-center"><span class="score" style="background:${sc(it.prioridad)}22;color:${sc(it.prioridad)}">${Math.round(it.prioridad)}</span></td>
+    <td class="px-2 py-1"><span class="text-[9px]" style="color:${it.area_color||'#666'}">${esc(it.area_nombre||'—')}</span></td>
+    <td class="px-2 py-1 text-gray-500">${it.estado}</td>
+    <td class="px-2 py-1 whitespace-nowrap">
+      <button onclick='openTask(${JSON.stringify(it).replace(/'/g,"&#39;")})' class="text-warp-3 text-[9px] hover:underline">ver</button>
+      <button onclick="softDel('${it.id}')" class="text-red-400/70 text-[9px] ml-1">del</button></td>
+  </tr>`).join('')||'<tr><td colspan="10" class="text-center py-6 text-gray-600">sin datos</td></tr>';
+
+  if(mChart)mChart.destroy();
+  // plugin for quadrant lines + diagonal
+  const namePlugin={
+    id:'bubnames',
+    afterDatasetsDraw(chart){
+      const {ctx}=chart;
+      chart.getDatasetMeta(0).data.forEach((pt,i)=>{
+        const raw=chart.data.datasets[0].data[i];
+        if(!raw)return;
+        const r=pt.options.radius||8;
+        ctx.save();
+        ctx.fillStyle='rgba(230,230,255,0.9)';
+        ctx.font=`${Math.max(8,Math.min(14,r*0.55))}px Share Tech Mono`;
+        ctx.textAlign='center';
+        const name=(raw.t||'').slice(0,18);
+        ctx.fillText(name, pt.x, pt.y - r - 4);
+        ctx.restore();
+      });
+    }
+  };
+  const quadPlugin={
+    id:'quads',
+    beforeDraw(chart){
+      const {ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
+      const xMid=x.getPixelForValue(5.5), yMid=y.getPixelForValue(5.5);
+      ctx.save();
+      ctx.strokeStyle='rgba(192,132,252,0.7)';ctx.lineWidth=2;ctx.setLineDash([4,4]);
+      ctx.beginPath();ctx.moveTo(xMid,top);ctx.lineTo(xMid,bottom);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(left,yMid);ctx.lineTo(right,yMid);ctx.stroke();
+      // diagonal descriptive
+      ctx.strokeStyle='rgba(232,121,249,0.55)';ctx.lineWidth=2;ctx.setLineDash([2,6]);
+      ctx.beginPath();ctx.moveTo(x.getPixelForValue(1),y.getPixelForValue(1));ctx.lineTo(x.getPixelForValue(10),y.getPixelForValue(10));ctx.stroke();
+      ctx.fillStyle='rgba(168,85,247,0.35)';ctx.font='9px Share Tech Mono';
+      ctx.fillText('ESFUERZO → IMPACTO', x.getPixelForValue(6.5), y.getPixelForValue(7.5));
+      ctx.font='bold 10px Share Tech Mono';
+      ctx.fillStyle='rgba(52,211,153,0.55)';
+      ctx.fillText('HAZLAS YA', x.getPixelForValue(2.2), y.getPixelForValue(8.5));
+      ctx.fillStyle='rgba(56,189,248,0.55)';
+      ctx.fillText('PLANIFICA', x.getPixelForValue(7.5), y.getPixelForValue(8.5));
+      ctx.fillStyle='rgba(251,191,36,0.55)';
+      ctx.fillText('LOTES/DELEGA', x.getPixelForValue(2.2), y.getPixelForValue(2.5));
+      ctx.fillStyle='rgba(251,113,133,0.55)';
+      ctx.fillText('EVITA', x.getPixelForValue(7.5), y.getPixelForValue(2.5));
+      ctx.restore();
+    }
+  };
+  mChart=new Chart(el('mchart'),{
+    type:'bubble',
+    data:{datasets:[{data:items.map(it=>({x:it.esfuerzo,y:it.impacto,r:Math.max(6, 4+Math.log2(1+it.urgencia)*6),t:it.titulo,p:it.prioridad})),
+      backgroundColor:items.map(it=>(it.area_color||'#a855f7')+'88'),borderColor:items.map(it=>it.area_color||'#a855f7'),borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.t}  P=${Math.round(c.raw.p)}`}},datalabels:false},
+      scales:{x:{min:.5,max:10.5,title:{display:true,text:'ESFUERZO',color:'#555',font:{size:10,family:'Share Tech Mono'}},ticks:{color:'#555',stepSize:1},grid:{color:'#14141e'}},
+             y:{min:.5,max:10.5,title:{display:true,text:'IMPACTO',color:'#555',font:{size:10,family:'Share Tech Mono'}},ticks:{color:'#555',stepSize:1},grid:{color:'#14141e'}}}},
+    plugins:[quadPlugin,namePlugin]
+  });
+}
+
+function openFormula(){
+  api('/api/formula').then(f=>{
+    modalCtx={type:'formula'};
+    el('modal-title').textContent='EDIT_FÓRMULA';
+    el('modal-body').innerHTML=`
+      <p class="text-[10px] text-gray-500 mb-2">P = u×Urgencia + i×Impacto − e×Esfuerzo − m×Miedo</p>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="text-[9px] text-gray-600">coef Urgencia</label><input id="f-u" type="number" step="0.1" value="${f.coef_u}" class="w-full px-2 py-1"/></div>
+        <div><label class="text-[9px] text-gray-600">coef Impacto</label><input id="f-i" type="number" step="0.1" value="${f.coef_i}" class="w-full px-2 py-1"/></div>
+        <div><label class="text-[9px] text-gray-600">coef Esfuerzo</label><input id="f-e" type="number" step="0.1" value="${f.coef_e}" class="w-full px-2 py-1"/></div>
+        <div><label class="text-[9px] text-gray-600">coef Miedo</label><input id="f-m" type="number" step="0.1" value="${f.coef_m}" class="w-full px-2 py-1"/></div>
+      </div>`;
+    el('modal').classList.remove('hidden');
+  });
+}
+
+// KANBAN
+async function loadKanban(){
+  const d=await api('/api/kanban');
+  el('kboard').innerHTML=d.estados.map(e=>`
+    <div class="kanban-col p-2 min-w-[150px] flex-shrink-0" data-estado="${e}"
+         ondragover="event.preventDefault()" ondrop="onDrop(event,'${e}')">
+      <div class="text-[9px] text-gray-600 tracking-widest mb-2 flex justify-between"><span>${e.toUpperCase()}</span><span class="text-warp-3">${(d.board[e]||[]).length}</span></div>
+      <div class="space-y-1.5">${(d.board[e]||[]).map(t=>`
+        <div class="task-card card p-2 text-[11px] ${(t.estado==='Completado'||t.estado==='Cancelado')?'opacity-40':''} ${t.bloqueada?'opacity-60 border border-amber-700/50':''}"
+          draggable="${t.bloqueada&&t.estado==='Backlog'?'false':'true'}" data-id="${t.id}" data-estado="${t.estado}"
+          ondragstart="onDrag(event)" onclick="if(!event.target.closest('button'))openTask(${JSON.stringify(t).replace(/'/g,'&#39;')})">
+          <div>${esc(t.titulo)}${t.bloqueada?' <span class="text-amber-500 text-[8px]">🔒 prereq</span>':''}</div>
+          <div class="flex gap-1 mt-1 flex-wrap">
+            <span class="score" style="background:${sc(t.prioridad)}22;color:${sc(t.prioridad)}">P${Math.round(t.prioridad)}</span>
+            ${t.area_nombre?`<span class="text-[8px]" style="color:${t.area_color}">${esc(t.area_nombre)}</span>`:''}
+          </div>
+          <button onclick='event.stopPropagation();openTask(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-warp-3 text-[8px] mt-1">ver</button>
+          <button onclick="event.stopPropagation();softDel('${t.id}')" class="text-red-400/60 text-[8px] ml-1">del</button>
+        </div>`).join('')}
+      </div>
+    </div>`).join('');
+  renderKanbanCal(d);
+}
+
+function onDrag(e){dragId=e.target.closest('[data-id]').dataset.id;e.target.classList.add('dragging')}
+async function onBlackHole(e){
+  e.preventDefault();
+  if(!dragId)return;
+  const card=document.querySelector(`[data-id="${dragId}"]`);
+  if(card)card.classList.add('sucking');
+  const bh=document.getElementById('blackhole');
+  if(bh)bh.classList.add('absorb');
+  try{
+    const card0=document.querySelector(`[data-id="${dragId}"]`);const from0=card0?.dataset?.estado||'Backlog';await api('/api/tareas/'+dragId+'/eliminar',{method:'POST'});pushUndo({type:'soft_delete',id:dragId,from:from0});
+  }catch(err){alert(err.message)}
+  dragId=null;
+  setTimeout(()=>{if(bh)bh.classList.remove('absorb');loadKanban();},600);
+}
+
+async function renderKanbanCal(d){
+  const box = el('kanban-cal'); if(!box) return;
+  const all = [];
+  (d.estados||[]).forEach(e => (d.board[e]||[]).forEach(t => all.push(t)));
+  // day timeline 6-22
+  const hours = []; for(let h=6;h<=22;h++) hours.push(h);
+  const dayHtml = hours.map(hr=>{
+    const hits = all.filter(t=>{
+      const fi = (t.fecha_inicio||'').toString();
+      if(!fi) return false;
+      const hh = parseInt(fi.slice(11,13)||fi.slice(0,2),10);
+      return hh === hr;
+    });
+    return `<div class="day-tl"><span class="text-gray-600">${String(hr).padStart(2,'0')}:00</span>
+      <div>${hits.map(t=>`<div class="day-tl-bar px-1" style="width:${Math.min(100,(t.esfuerzo||5)*10)}%">${esc(t.titulo)}</div>`).join('')||''}</div></div>`;
+  }).join('');
+  // month
+  const now = new Date(); const y=now.getFullYear(), m=now.getMonth();
+  const dim = new Date(y,m+1,0).getDate();
+  const daySet = new Set();
+  all.forEach(t=>{
+    const f = (t.fecha_inicio||t.fecha_fin||'').toString().slice(0,10);
+    if(f.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)) daySet.add(f);
+  });
+  const monthHtml = Array.from({length:dim},(_,i)=>{
+    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+    return `<div class="cal-day flex items-center justify-center ${daySet.has(ds)?'has-ev':''}">${i+1}</div>`;
+  }).join('');
+  box.innerHTML = `
+    <div class="card p-3"><div class="text-[10px] text-warp-3 mb-2">TIMELINE_DÍA · tareas con hora inicio</div>
+      <div class="max-h-64 overflow-y-auto">${dayHtml}</div></div>
+    <div class="card p-3"><div class="text-[10px] text-warp-3 mb-2">MES · días con tareas</div>
+      <div class="grid grid-cols-7 gap-0.5">${monthHtml}</div></div>`;
+}
+
+async function onDrop(e,estado){
+  e.preventDefault();if(!dragId)return;
+  const card=document.querySelector(`[data-id="${dragId}"]`);
+  const from=card?.dataset?.estado||'Backlog';
+  try{
+    await api('/api/kanban/move',{method:'POST',body:JSON.stringify({tarea_id:dragId,estado})});
+    pushUndo({type:'move',id:dragId,from,to:estado});
+  }catch(err){alert(err.message)}
+  dragId=null;
+  await loadKanban();loadMatriz();
+  setTimeout(()=>{document.querySelectorAll('.task-card').forEach(c=>c.classList.add('drop-flash'))},50);
+}
+async function softDel(id){
+  if(!confirm('¿Eliminar (soft)? Se puede deshacer.'))return;
+  const card=document.querySelector(`[data-id="${id}"]`);
+  const from=card?.dataset?.estado||'Backlog';
+  await api('/api/tareas/'+id+'/eliminar',{method:'POST'});
+  pushUndo({type:'soft_delete',id,from});
+  loadKanban();loadMatriz();
+}
+
+// TASK MODAL
+function openTask(t){
+  modalCtx={type:'tarea',id:t?.id};
+  el('modal-title').textContent=t?'EDIT_TAREA':'NEW_TAREA';
+  const convertSel=t?`<div><label class="text-[9px] text-gray-600">Convertir a</label>
+    <select id="m-convert" class="w-full px-2 py-1.5"><option value="">— mantener tarea —</option>
+    <option value="habito">Hábito</option><option value="proyecto">Proyecto</option><option value="evento">Evento</option></select></div>`:'';
+  const areaOpts=areas.map(a=>`<option value="${a.id}" ${t&&t.area_id===a.id?'selected':''}>${a.nombre}</option>`).join('');
+  const estOpts=['Backlog','Pendiente','En curso','Pausado','Completado','Cancelado'].map(e=>`<option ${t&&t.estado===e?'selected':''}>${e}</option>`).join('');
+  el('modal-body').innerHTML=`
+    <input id="m-titulo" placeholder="Título" value="${esc(t?.titulo||'')}" class="w-full px-2 py-1.5"/>
+    <textarea id="m-desc" placeholder="Descripción" rows="2" class="w-full px-2 py-1.5">${esc(t?.descripcion||'')}</textarea>
+    <select id="m-estado" class="w-full px-2 py-1.5">${estOpts}</select>
+    <div><label class="text-[9px] text-gray-600">Prerequisito (tarea)</label>
+    <select id="m-prereq" class="w-full px-2 py-1.5"><option value="">— ninguno —</option></select></div>
+    <select id="m-area" class="w-full px-2 py-1.5"><option value="">Área</option>${areaOpts}</select>
+    <label class="flex items-center gap-2 text-xs"><input type="checkbox" id="m-sin-prereq"/> Sin prerequisito (default: tarea anterior del proyecto)</label>
+    <div class="grid grid-cols-2 gap-2">
+      <div><label class="text-[9px] text-gray-600">Impacto</label><input id="m-i" type="number" min="1" max="10" value="${t?.impacto??5}" class="w-full px-2 py-1"/></div>
+      <div><label class="text-[9px] text-gray-600">Esfuerzo</label><input id="m-e" type="number" min="1" max="10" value="${t?.esfuerzo??5}" class="w-full px-2 py-1"/></div>
+      <div><label class="text-[9px] text-gray-600">Miedo</label><input id="m-m" type="number" min="1" max="10" value="${t?.miedo??3}" class="w-full px-2 py-1"/></div>
+      <div><label class="text-[9px] text-gray-600">Urgencia</label><input id="m-u" type="number" min="1" max="10" value="${t?.urgencia??5}" class="w-full px-2 py-1"/></div>
+    </div>
+    ${convertSel}
+    <div class="grid grid-cols-2 gap-2">
+      <div><label class="text-[9px] text-gray-600">Desde</label><input id="m-fi" type="datetime-local" value="${(t?.fecha_inicio||'').toString().slice(0,16)}" class="w-full px-2 py-1"/></div>
+      <div><label class="text-[9px] text-gray-600">Hasta</label><input id="m-ff" type="datetime-local" value="${(t?.fecha_fin||'').toString().slice(0,16)}" class="w-full px-2 py-1"/></div>
+    </div>`;
+  api('/api/tareas').then(list=>{
+    const sel=el('m-prereq');if(!sel)return;
+    sel.innerHTML='<option value="">— ninguno —</option>'+list.filter(x=>x.id!==(t&&t.id)).map(x=>`<option value="${x.id}" ${t&&t.prerequisito_id===x.id?'selected':''}>${esc(x.titulo)}</option>`).join('');
+  }).catch(()=>{});
+  el('modal').classList.remove('hidden');
+}
+
+
+function openHabito(h){
+  modalCtx={type:'habito',id:h?.id};
+  el('modal-title').textContent=h?'EDIT_HÁBITO':'NEW_HÁBITO';
+  const areaOpts=areas.map(a=>`<option value="${a.id}" ${h&&h.area_id===a.id?'selected':''}>${a.nombre}</option>`).join('');
+  el('modal-body').innerHTML=`
+    <input id="m-titulo" placeholder="Título" value="${esc(h?.titulo||'')}" class="w-full px-2 py-1.5"/>
+    <textarea id="m-desc" placeholder="Descripción" rows="2" class="w-full px-2 py-1.5">${esc(h?.descripcion||'')}</textarea>
+    <select id="m-area" class="w-full px-2 py-1.5"><option value="">Área</option>${areaOpts}</select>
+    <select id="m-freq" class="w-full px-2 py-1.5">
+      <option ${h?.frecuencia==='diario'?'selected':''}>diario</option>
+      <option ${h?.frecuencia==='semanal'?'selected':''}>semanal</option>
+      <option ${h?.frecuencia==='mensual'?'selected':''}>mensual</option>
+    </select>
+    <div><label class="text-[9px] text-gray-600">Horario</label><input id="m-horario" type="time" value="${h?.horario||'07:00'}" class="w-full px-2 py-1"/></div>
+    <div><label class="text-[9px] text-gray-600">Duración (min)</label><input id="m-dur" type="number" min="1" max="180" value="${h?.duracion_min||10}" class="w-full px-2 py-1"/></div>
+    <label class="flex items-center gap-2 text-xs"><input type="checkbox" id="m-activo" ${h?.activo!==0?'checked':''}/> Activo</label>`;
+  api('/api/tareas').then(list=>{
+    const sel=el('m-prereq');if(!sel)return;
+    sel.innerHTML='<option value="">— ninguno —</option>'+list.filter(x=>x.id!==(t&&t.id)).map(x=>`<option value="${x.id}" ${t&&t.prerequisito_id===x.id?'selected':''}>${esc(x.titulo)}</option>`).join('');
+  }).catch(()=>{});
+  el('modal').classList.remove('hidden');
+}
+
+
+function openProyecto(p){
+  modalCtx={type:'proyecto',id:p?.id};
+  el('modal-title').textContent=p?'EDIT_PROYECTO':'NEW_PROYECTO';
+  const areaOpts=areas.map(a=>`<option value="${a.id}" ${p&&p.area_id===a.id?'selected':''}>${a.nombre}</option>`).join('');
+  el('modal-body').innerHTML=`
+    <input id="m-titulo" placeholder="Título" value="${esc(p?.titulo||'')}" class="w-full px-2 py-1.5"/>
+    <textarea id="m-desc" placeholder="Descripción" rows="2" class="w-full px-2 py-1.5">${esc(p?.descripcion||'')}</textarea>
+    <input id="m-obj" placeholder="Objetivo" value="${esc(p?.objetivo||'')}" class="w-full px-2 py-1.5"/>
+    <select id="m-area" class="w-full px-2 py-1.5"><option value="">Área</option>${areaOpts}</select>
+    <div><label class="text-[9px] text-gray-600">Deadline</label><input id="m-dl" type="date" value="${(p?.deadline||'').toString().slice(0,10)}" class="w-full px-2 py-1"/></div>`;
+  api('/api/tareas').then(list=>{
+    const sel=el('m-prereq');if(!sel)return;
+    sel.innerHTML='<option value="">— ninguno —</option>'+list.filter(x=>x.id!==(t&&t.id)).map(x=>`<option value="${x.id}" ${t&&t.prerequisito_id===x.id?'selected':''}>${esc(x.titulo)}</option>`).join('');
+  }).catch(()=>{});
+  el('modal').classList.remove('hidden');
+}
+
+
+function openEvento(e){
+  modalCtx={type:'evento',id:e?.id};
+  el('modal-title').textContent=e?'EDIT_EVENTO':'NEW_EVENTO';
+  const areaOpts=areas.map(a=>`<option value="${a.id}" ${e&&e.area_id===a.id?'selected':''}>${a.nombre}</option>`).join('');
+  el('modal-body').innerHTML=`
+    <input id="m-titulo" placeholder="Título" value="${esc(e?.titulo||'')}" class="w-full px-2 py-1.5"/>
+    <textarea id="m-desc" placeholder="Descripción" rows="2" class="w-full px-2 py-1.5">${esc(e?.descripcion||'')}</textarea>
+    <select id="m-area" class="w-full px-2 py-1.5"><option value="">Área</option>${areaOpts}</select>
+    <div><label class="text-[9px] text-gray-600">Inicio</label><input id="m-fi" type="datetime-local" value="${(e?.fecha_inicio||'').toString().slice(0,16)}" class="w-full px-2 py-1"/></div>
+    <div><label class="text-[9px] text-gray-600">Fin</label><input id="m-ff" type="datetime-local" value="${(e?.fecha_fin||'').toString().slice(0,16)}" class="w-full px-2 py-1"/></div>
+    <input id="m-ubi" placeholder="Ubicación" value="${esc(e?.ubicacion||'')}" class="w-full px-2 py-1.5"/>`;
+  api('/api/tareas').then(list=>{
+    const sel=el('m-prereq');if(!sel)return;
+    sel.innerHTML='<option value="">— ninguno —</option>'+list.filter(x=>x.id!==(t&&t.id)).map(x=>`<option value="${x.id}" ${t&&t.prerequisito_id===x.id?'selected':''}>${esc(x.titulo)}</option>`).join('');
+  }).catch(()=>{});
+  el('modal').classList.remove('hidden');
+}
+
+
+function closeModal(){el('modal').classList.add('hidden');modalCtx=null}
+
+async function modalSave(){
+  if(!modalCtx)return;
+  if(modalCtx.type==='formula'){
+    await api('/api/formula',{method:'POST',body:JSON.stringify({coef_u:+el('f-u').value,coef_i:+el('f-i').value,coef_e:+el('f-e').value,coef_m:+el('f-m').value})});
+    closeModal();loadMatriz();return;
+  }
+  if(modalCtx.type==='tarea'){
+    const body={titulo:el('m-titulo').value,descripcion:el('m-desc').value,estado:el('m-estado').value,
+      area_id:el('m-area').value||null,impacto:+el('m-i').value,esfuerzo:+el('m-e').value,miedo:+el('m-m').value,urgencia:+el('m-u').value,
+      fecha_inicio:el('m-fi')?.value||null,fecha_fin:el('m-ff')?.value||null,prerequisito_id:el('m-prereq')?.value||null};
+    if(modalCtx.id){
+      const conv=el('m-convert')?.value;
+      if(conv){
+        await api('/api/gestionables/'+modalCtx.id+'/convertir',{method:'POST',body:JSON.stringify({tipo:conv,...body})});
+        closeModal();switchTab(conv==='habito'?'habitos':conv==='proyecto'?'proyectos':conv==='evento'?'eventos':'matriz');return;
+      }
+      await api('/api/tareas/'+modalCtx.id,{method:'PATCH',body:JSON.stringify(body)});
+    } else await api('/api/tareas',{method:'POST',body:JSON.stringify(body)});
+    closeModal();switchTab(document.querySelector('.tab-on')?.dataset.tab||'matriz');return;
+  }
+  if(modalCtx.type==='habito'){
+    const body={titulo:el('m-titulo').value,descripcion:el('m-desc').value,area_id:el('m-area').value||null,
+      frecuencia:el('m-freq').value,horario:el('m-horario').value,duracion_min:+(el('m-dur')?.value||10),activo:el('m-activo').checked?1:0};
+    if(modalCtx.id)await api('/api/habitos/'+modalCtx.id,{method:'PATCH',body:JSON.stringify(body)});
+    else await api('/api/habitos',{method:'POST',body:JSON.stringify(body)});
+    closeModal();loadHabitos();return;
+  }
+  if(modalCtx.type==='proyecto'){
+    const body={titulo:el('m-titulo').value,descripcion:el('m-desc').value,objetivo:el('m-obj').value,
+      area_id:el('m-area').value||null,deadline:el('m-dl').value||null};
+    if(modalCtx.id)await api('/api/proyectos/'+modalCtx.id,{method:'PATCH',body:JSON.stringify(body)});
+    else await api('/api/proyectos',{method:'POST',body:JSON.stringify(body)});
+    closeModal();loadProy();return;
+  }
+  if(modalCtx.type==='evento'){
+    const body={titulo:el('m-titulo').value,descripcion:el('m-desc').value,area_id:el('m-area').value||null,
+      fecha_inicio:el('m-fi').value||null,fecha_fin:el('m-ff').value||null,ubicacion:el('m-ubi').value};
+    if(modalCtx.id)await api('/api/eventos/'+modalCtx.id,{method:'PATCH',body:JSON.stringify(body)});
+    else await api('/api/eventos',{method:'POST',body:JSON.stringify(body)});
+    closeModal();loadEv();return;
+  }
+  if(modalCtx.type==='subtarea'){
+    const body={titulo:el('m-titulo').value,descripcion:el('m-desc').value,estado:el('m-estado').value,
+      area_id:el('m-area').value||null,impacto:+el('m-i').value,esfuerzo:+el('m-e').value,miedo:+el('m-m').value,urgencia:+el('m-u').value};
+    body.sin_prerequisito=!!el('m-sin-prereq')?.checked;await api('/api/proyectos/'+modalCtx.pid+'/tareas',{method:'POST',body:JSON.stringify(body)});
+    closeModal();loadProy();return;
+  }
+}
+
+// BURNDOWN
+async function loadBd(){
+  const d=await api('/api/burndown');
+  el('bd-i').value=d.fecha_inicio||'';
+  el('bd-f').value=d.fecha_fin||'';
+  el('bd-st').textContent=`${d.fecha_inicio} → ${d.fecha_fin} 20:00 · tareas Pendiente: ${d.total_tareas} · peso total P=${d.total_peso} · hecho ${d.peso_completado} (${d.pct}%)`;
+  if(bdChart)bdChart.destroy();
+  bdChart=new Chart(el('bdchart'),{type:'line',data:{
+    labels:d.labels||[],
+    datasets:[
+      {label:'Restante (peso P)',data:d.remaining||[],borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,.08)',fill:true,tension:.2},
+      {label:'Ideal',data:d.ideal||[],borderColor:'#64748b',borderDash:[6,4],fill:false,tension:0}
+    ]},
+    options:{plugins:{legend:{labels:{color:'#888',font:{size:10}}}},scales:{x:{ticks:{color:'#555',font:{size:9}},grid:{color:'#14141e'}},y:{beginAtZero:true,ticks:{color:'#555'},grid:{color:'#14141e'}}}}});
+  // lista de items del sprint
+  let box=document.getElementById('bd-items');
+  if(!box){box=document.createElement('div');box.id='bd-items';box.className='card p-3 mt-3 text-xs';el('tab-burndown').appendChild(box)}
+  box.innerHTML='<div class="text-[10px] text-warp-3 mb-2">TAREAS_SPRINT (estado Pendiente al inicio · peso=prioridad)</div>'+
+    (d.items||[]).map(i=>`<div class="flex justify-between border-b border-[#1a1a28] py-1 ${i.done?'opacity-40 line-through':''}">
+      <span>${esc(i.titulo)} <span class="text-gray-600">${i.estado}</span></span>
+      <span class="text-warp-3">P ${Math.round(i.peso)}</span></div>`).join('')||'<span class="text-gray-600">Sin tareas en Pendiente</span>';
+}
+async function saveBd(){await api('/api/burndown',{method:'POST',body:JSON.stringify({fecha_inicio:el('bd-i').value,fecha_fin:el('bd-f').value})});loadBd()}
+
+// HÁBITOS + month map
+async function loadHabitos(){
+  const [d, kb] = await Promise.all([api('/api/habitos'), api('/api/habitos/kanban')]);
+  const por = d.por_area || {};
+  const now = new Date(); const y = now.getFullYear(), m = now.getMonth();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  // Kanban hábitos
+  const khtml = `<div class="flex gap-2 overflow-x-auto mb-4">
+    ${(kb.estados||['Pendiente','En curso','Completado']).map(e=>`
+      <div class="hab-kanban-col p-2 min-w-[140px] flex-1" data-hestado="${e}"
+           ondragover="event.preventDefault()" ondrop="dropHabEstado(event,'${e}')">
+        <div class="text-[9px] text-gray-600 tracking-widest mb-2 flex justify-between">
+          <span>${e.toUpperCase()}</span><span class="text-warp-3">${(kb.board[e]||[]).length}</span>
+        </div>
+        <div class="space-y-1">${(kb.board[e]||[]).map(h=>`
+          <div class="card p-1.5 text-[10px] cursor-grab ${e==='Completado'?'opacity-50':''}" draggable="true"
+               data-hid="${h.id}" ondragstart="dragHabId='${h.id}'">
+            <div>${esc(h.titulo)}</div>
+            <div class="text-[8px] text-gray-600">${h.horario||''} · ${h.duracion_min||10}m · 🔥${h.racha||0}</div>
+          </div>`).join('')}</div>
+      </div>`).join('')}</div>`;
+  // Full timeline 06:00-02:00 (20 slots of 1h) NO scroll
+  const hours = []; for(let h=6;h<=25;h++) hours.push(h%24);
+  const lista = d.lista || [];
+  const tl = `<div class="card p-2 mb-4">
+    <div class="flex justify-between items-center mb-2">
+      <span class="text-[10px] text-warp-3 tracking-widest">TIMELINE_DÍA · 06→02 · click slot = nuevo hábito</span>
+      <button onclick="openHabito()" class="btn text-[9px] px-2 py-0.5">+ HÁBITO</button>
+    </div>
+    <div class="timeline-full">${hours.map(hr=>{
+      const label = String(hr).padStart(2,'0');
+      const hits = lista.filter(h=>{
+        const hh = parseInt((h.horario||'07:00').split(':')[0],10);
+        return hh === hr;
+      });
+      return `<div class="timeline-slot" onclick="if(event.target===this)quickHabAt(${hr})"
+               ondragover="event.preventDefault()" ondrop="dropHabHour(event,${hr})">
+        <div class="text-[7px] text-gray-600 text-center">${label}</div>
+        ${hits.map(h=>`<div class="hab-chip" draggable="true" data-hid="${h.id}"
+          ondragstart="dragHab('${h.id}',event)"
+          ondblclick="event.stopPropagation();adjustDur('${h.id}',${h.duracion_min||10})"
+          title="${esc(h.titulo)} ${h.duracion_min||10}min — doble click duración">${esc((h.titulo||'').slice(0,12))}</div>`).join('')}
+      </div>`;
+    }).join('')}</div>
+    <p class="text-[8px] text-gray-600 mt-1">Arrastra entre horas · Doble-click chip = duración · Click vacío = nuevo</p>
+  </div>`;
+  // areas 2 col + mini month
+  const areasHtml = `<div class="grid md:grid-cols-2 gap-4">${Object.keys(por).map(area=>`
+    <div>
+      <h3 class="text-[10px] tracking-widest mb-2" style="color:${por[area].color||'#888'}">${esc(area).toUpperCase()}</h3>
+      <div class="space-y-2">${por[area].items.map(h=>`
+        <div class="card p-2">
+          <div class="flex items-center gap-2">
+            <button onclick="habKanbanMove('${h.id}','Completado')" class="w-8 h-8 border text-xs shrink-0
+              ${h.estado_dia==='Completado'||h.hecho_hoy?'border-emerald-500 text-emerald-400':'border-gray-600'}">✓</button>
+            <div class="flex-1 min-w-0 text-xs">
+              <div>${esc(h.titulo)}</div>
+              <div class="text-[8px] text-gray-600">${h.frecuencia} · ${h.horario||''} · ${h.duracion_min||10}min · 🔥${h.racha||0}</div>
+            </div>
+            <button onclick='openHabito(${JSON.stringify(h).replace(/'/g,"&#39;")})' class="text-warp-3 text-[8px]">edit</button>
+          </div>
+          <div class="hab-month mt-1">${Array.from({length:daysInMonth},(_,i)=>{
+            const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+            const on = (h.logs_mes||[]).includes(ds);
+            return `<div class="cal-day flex items-center justify-center ${on?'has-ev streak-pop text-warp-3':''}">${i+1}</div>`;
+          }).join('')}</div>
+        </div>`).join('')}</div>
+    </div>`).join('')}</div>`;
+  el('hab-list').innerHTML = khtml + tl + (Object.keys(por).length ? areasHtml : '<p class="text-gray-600 text-sm">sin hábitos</p>');
+}
+async function habKanbanMove(id, estado){
+  const r = await api('/api/habitos/'+id+'/estado',{method:'POST',body:JSON.stringify({estado})});
+  if(estado==='Completado'){
+    document.querySelectorAll('.has-ev').forEach(el=>el.classList.add('streak-pop'));
+  }
+  loadHabitos(); loadHome();
+}
+async function dropHabEstado(e, estado){
+  e.preventDefault();
+  const id = dragHabId || e.dataTransfer?.getData('text');
+  if(!id) return;
+  await habKanbanMove(id, estado);
+  dragHabId = null;
+}
+async function quickHabAt(hr){
+  const titulo = prompt('Nuevo hábito a las '+String(hr).padStart(2,'0')+':00');
+  if(!titulo) return;
+  await api('/api/habitos',{method:'POST',body:JSON.stringify({titulo,horario:String(hr).padStart(2,'0')+':00',frecuencia:'diario',duracion_min:10})});
+  loadHabitos();
+}
+async function adjustDur(id, cur){
+  const n = prompt('Duración en minutos', cur);
+  if(n===null) return;
+  await api('/api/habitos/'+id+'/horario',{method:'POST',body:JSON.stringify({duracion_min:+n})});
+  loadHabitos();
+}
+
+let dragHabId=null;
+function dragHab(id,e){dragHabId=id;e.dataTransfer.effectAllowed='move'}
+async function dropHabHour(e,hr){
+  e.preventDefault();if(!dragHabId)return;
+  const horario=String(hr).padStart(2,'0')+':00';
+  await api('/api/habitos/'+dragHabId,{method:'PATCH',body:JSON.stringify({horario})});
+  dragHabId=null;loadHabitos();
+}
+async function checkHab(id){try{await api('/api/habitos/'+id+'/check',{method:'POST'});loadHabitos()}catch(e){alert(e.message)}}
+async function delHab(id){if(confirm('¿Eliminar?')){await api('/api/habitos/'+id,{method:'DELETE'});loadHabitos()}}
+
+// PROYECTOS
+async function loadProy(){
+  const list=await api('/api/proyectos');
+  const deadlines=list.filter(p=>p.deadline).map(p=>({fecha:String(p.deadline).slice(0,10),titulo:p.titulo}));
+  if(typeof proyMonth==='undefined')window.proyMonth=new Date();
+  const pm=window.proyMonth;const y=pm.getFullYear(),m=pm.getMonth();
+  const dim=new Date(y,m+1,0).getDate();
+  const dset=new Set(deadlines.map(d=>d.fecha));
+  const calMini=`<div class="card p-3 mb-4"><div class="flex justify-between text-[10px] text-warp-3 mb-2">
+    <button onclick="proyMonth=new Date(proyMonth.getFullYear(),proyMonth.getMonth()-1,1);loadProy()" class="text-gray-500 hover:text-warp-3">◀</button>
+    <span>DEADLINES · ${pm.toLocaleString('es',{month:'long',year:'numeric'}).toUpperCase()}</span>
+    <button onclick="proyMonth=new Date(proyMonth.getFullYear(),proyMonth.getMonth()+1,1);loadProy()" class="text-gray-500 hover:text-warp-3">▶</button></div>
+    <div class="grid grid-cols-7 gap-0.5 text-[8px]">${Array.from({length:dim},(_,i)=>{
+      const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+      return `<div class="cal-day flex items-center justify-center ${dset.has(ds)?'has-ev':''}" title="${ds}">${i+1}</div>`;
+    }).join('')}</div>
+    <div class="mt-2 text-[9px] text-gray-500">${deadlines.map(d=>d.fecha+' · '+esc(d.titulo)).join(' · ')||'sin deadlines'}</div></div>`;
+  el('proy-list').innerHTML=calMini+list.map(p=>`
+    <div class="card p-4">
+      <div class="flex justify-between">
+        <div>
+          <div class="text-sm text-warp-3">${esc(p.titulo)}</div>
+          <div class="text-[10px] text-gray-600">${esc(p.objetivo||'')} ${p.deadline?'· '+String(p.deadline).slice(0,10):''}</div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick='openProyecto(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="text-warp-3 text-[9px]">edit</button>
+          <button onclick="delProy('${p.id}')" class="text-gray-700 hover:text-red-400 text-xs">✕</button>
+        </div>
+      </div>
+      <div class="mt-2 h-1 bg-[#111]"><div class="h-full bg-warp-4" style="width:${p.progreso||0}%"></div></div>
+      <div class="text-[9px] text-right text-warp-3 mt-0.5">${p.progreso||0}%</div>
+      <ul class="mt-2 space-y-1">${(p.tareas||[]).map(t=>`
+        <li class="flex items-center gap-2 text-xs border-t border-[#1a1a28] pt-1">
+          <span class="score" style="color:${sc(t.prioridad)}">P${Math.round(t.prioridad)}</span>
+          <span class="${t.estado==='Completado'?'line-through text-gray-600':''}">${esc(t.titulo)}</span>
+          <span class="text-[8px] text-gray-600">${t.estado}</span>
+          <button onclick='openTask(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-warp-3 text-[8px] ml-auto">edit</button>
+        </li>`).join('')}</ul>
+      <button onclick="openSubtarea('${p.id}')" class="text-[9px] text-warp-3 mt-2 hover:underline">+ subtarea (tarea completa)</button>
+    </div>`).join('')||'<p class="text-gray-600 text-sm">sin proyectos</p>';
+}
+function openSubtarea(pid){
+  modalCtx={type:'subtarea',pid};
+  el('modal-title').textContent='SUBTAREA_ = TAREA real';
+  const areaOpts=areas.map(a=>`<option value="${a.id}">${a.nombre}</option>`).join('');
+  el('modal-body').innerHTML=`
+    <input id="m-titulo" placeholder="Título" class="w-full px-2 py-1.5"/>
+    <textarea id="m-desc" placeholder="Descripción" rows="2" class="w-full px-2 py-1.5"></textarea>
+    <select id="m-estado" class="w-full px-2 py-1.5"><option>Pendiente</option><option>Backlog</option><option>En curso</option></select>
+    <select id="m-area" class="w-full px-2 py-1.5"><option value="">Área</option>${areaOpts}</select>
+    <div class="grid grid-cols-2 gap-2">
+      <div><label class="text-[9px] text-gray-600">Impacto</label><input id="m-i" type="number" min="1" max="10" value="5" class="w-full px-2 py-1"/></div>
+      <div><label class="text-[9px] text-gray-600">Esfuerzo</label><input id="m-e" type="number" min="1" max="10" value="5" class="w-full px-2 py-1"/></div>
+      <div><label class="text-[9px] text-gray-600">Miedo</label><input id="m-m" type="number" min="1" max="10" value="3" class="w-full px-2 py-1"/></div>
+      <div><label class="text-[9px] text-gray-600">Urgencia</label><input id="m-u" type="number" min="1" max="10" value="5" class="w-full px-2 py-1"/></div>
+    </div>`;
+  api('/api/tareas').then(list=>{
+    const sel=el('m-prereq');if(!sel)return;
+    sel.innerHTML='<option value="">— ninguno —</option>'+list.filter(x=>x.id!==(t&&t.id)).map(x=>`<option value="${x.id}" ${t&&t.prerequisito_id===x.id?'selected':''}>${esc(x.titulo)}</option>`).join('');
+  }).catch(()=>{});
+  el('modal').classList.remove('hidden');
+}
+
+async function delProy(id){if(confirm('¿Eliminar?')){await api('/api/proyectos/'+id,{method:'DELETE'});loadProy()}}
+
+// EVENTOS + CAL MENSUAL
+async function loadEv(){
+  const [evs,cal]=await Promise.all([api('/api/eventos'),api('/api/calendario?month='+calMonth.toISOString().slice(0,7))]);
+  el('ev-list').innerHTML=evs.map(e=>`
+    <div class="flex justify-between border-b border-[#1a1a28] pb-2">
+      <div><div>${esc(e.titulo)}</div><div class="text-[9px] text-gray-600">${String(e.fecha_inicio||'').slice(0,16)} ${e.ubicacion||''}</div></div>
+      <div class="flex gap-2">
+        <button onclick='openEvento(${JSON.stringify(e).replace(/'/g,"&#39;")})' class="text-warp-3 text-[9px]">edit</button>
+        <button onclick="delEv('${e.id}')" class="text-gray-700 hover:text-red-400">✕</button>
+      </div>
+    </div>`).join('')||'<p class="text-gray-600">sin eventos</p>';
+  renderCal(cal);
+}
+function calNav(d){calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+d,1);loadEv()}
+function renderCal(cal){
+  const y=calMonth.getFullYear(),m=calMonth.getMonth();
+  el('cal-title').textContent=calMonth.toLocaleString('es',{month:'long',year:'numeric'}).toUpperCase();
+  const first=new Date(y,m,1);let start=(first.getDay()+6)%7; // Mon=0
+  const days=new Date(y,m+1,0).getDate();
+  const daySet=new Set(cal.days||[]);
+  const today=new Date().toISOString().slice(0,10);
+  let html='';
+  for(let i=0;i<start;i++)html+='<div></div>';
+  for(let d=1;d<=days;d++){
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    html+=`<div class="cal-day flex items-center justify-center ${daySet.has(ds)?'has-ev':''} ${ds===today?'today':''}">${d}</div>`;
+  }
+  el('cal-grid').innerHTML=html;
+  el('cal-items').innerHTML=(cal.items||[]).map(i=>`<div><span class="text-gray-600">${i.fecha}</span> · ${esc(i.titulo)} <span class="text-warp-3">${i.tipo}</span></div>`).join('');
+}
+async function delEv(id){if(confirm('¿Eliminar?')){await api('/api/eventos/'+id,{method:'DELETE'});loadEv()}}
+
+// HOY
+let hoyPie;
+async function loadHoy(){
+  const d=await api('/api/hoy');
+  el('hoy-n').textContent=d.hoy;
+  el('hoy-avg').textContent=d.promedio;
+  el('hoy-eff').textContent=d.esfuerzo_total||0;
+  const labels=(d.serie||[]).map(s=>s.d), vals=(d.serie||[]).map(s=>s.c);
+  if(hoyChart)hoyChart.destroy();
+  hoyChart=new Chart(el('hoychart'),{type:'line',data:{labels:labels.length?labels:['—'],datasets:[{data:vals.length?vals:[0],borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,.1)',fill:true,tension:.3}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',font:{size:8}},grid:{color:'#14141e'}},y:{beginAtZero:true,ticks:{color:'#555'},grid:{color:'#14141e'}}}}});
+  if(hoyPie)hoyPie.destroy();
+  const pa=d.por_area||[];
+  hoyPie=new Chart(el('hoypie'),{type:'pie',data:{labels:pa.map(x=>x.area),datasets:[{data:pa.map(x=>x.c),backgroundColor:['#a855f7','#22c55e','#3b82f6','#f59e0b','#ec4899','#64748b']}]},
+    options:{plugins:{legend:{labels:{color:'#888',font:{size:9}}}}}});
+  el('hoy-proy').innerHTML=(d.proyectos||[]).map(p=>`<div>${esc(p.titulo)} <span class="text-warp-3">${p.progreso||0}%</span>
+    <div class="h-1 bg-[#111] mt-0.5"><div class="h-full bg-warp-4" style="width:${p.progreso||0}%"></div></div></div>`).join('')||'—';
+  el('hoy-hab').innerHTML=(d.habitos_rachas||[]).map(h=>`<div>🔥 ${h.racha||0} · ${esc(h.titulo)}</div>`).join('')||'—';
+  el('hoy-est').innerHTML=(d.por_estado||[]).map(s=>`<div>${esc(s.estado)}: <span class="text-warp-3">${s.c}</span></div>`).join('')||'—';
+}
+async function doResetDiario(){
+  if(!confirm('¿Reset diario? Pendiente→Backlog; Completado/Cancelado salen del kanban'))return;
+  const r=await api('/api/reset-diario',{method:'POST'});
+  alert(`Backlog: ${r.pendiente_a_backlog} · Archivados: ${r.archivados}`);
+  loadKanban();loadHoy();
+}
+
+// ADMIN curated tables
+async function loadAdminTabs(){
+  const tables=await api('/api/admin/tables');
+  el('admin-tabs').innerHTML=tables.map(t=>`<button onclick="adminLoad('${t}')" class="px-2 py-1 text-[10px] border border-gray-700 hover:border-warp-4 text-gray-400">${t}</button>`).join('')
+    +`<button onclick="adminLoad('movimientos')" class="px-2 py-1 text-[10px] border border-gray-700 hover:border-warp-4 text-gray-400">movimientos</button>`;
+  adminLoad('movimientos');
+}
+async function adminLoad(tabla){
+  let data;
+  if(tabla==='movimientos'){const rows=await api('/api/admin/movimientos');data={columns:rows[0]?Object.keys(rows[0]):[],rows}}
+  else data=await api('/api/admin/table/'+tabla);
+  el('admin-thead').innerHTML='<tr>'+(data.columns||[]).map(c=>`<th class="px-2 py-2 text-left text-[9px] text-gray-600 tracking-wider border-b border-[#1a1a28]">${c}</th>`).join('')+'</tr>';
+  el('admin-tbody').innerHTML=(data.rows||[]).map(r=>`<tr class="border-t border-[#12121a] hover:bg-warp-9/20">${(data.columns||[]).map(c=>`<td class="px-2 py-1.5 text-gray-400 max-w-[180px] truncate" title="${esc(String(r[c]??''))}">${esc(String(r[c]??'').slice(0,80))}</td>`).join('')}</tr>`).join('')
+    ||'<tr><td class="p-4 text-gray-600">vacío</td></tr>';
+}
+
+if(token&&user){api('/api/auth/me').then(()=>enterApp()).catch(logout)}
+</script>
+</body>
+</html>
